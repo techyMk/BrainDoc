@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+
+  --color-ink-50: #f5f7fb;
+  --color-ink-100: #e7ecf4;
+  --color-ink-200: #c5cfe0;
+  --color-ink-300: #96a3bb;
+  --color-ink-400: #6c7891;
+  --color-ink-500: #485267;
+  --color-ink-600: #323a4a;
+  --color-ink-700: #232a38;
+  --color-ink-800: #171d29;
+  --color-ink-900: #0d1320;
+  --color-ink-950: #070a13;
+
+  --color-accent: #8b7cff;
+  --color-accent-2: #35d0ba;
+  --color-accent-3: #ff7ab6;
+}
+
+:root {
+  color-scheme: dark;
+  --bg-grad-1: radial-gradient(
+    1200px 700px at 10% -10%,
+    rgba(139, 124, 255, 0.25),
+    transparent 60%
+  );
+  --bg-grad-2: radial-gradient(
+    900px 600px at 90% 10%,
+    rgba(53, 208, 186, 0.18),
+    transparent 60%
+  );
+  --bg-grad-3: radial-gradient(
+    1100px 800px at 50% 120%,
+    rgba(255, 122, 182, 0.15),
+    transparent 60%
+  );
+}
+
+html,
+body {
+  height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background: #070a13;
+  background-image: var(--bg-grad-1), var(--bg-grad-2), var(--bg-grad-3);
+  background-attachment: fixed;
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Scrollbar polish */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(150, 163, 187, 0.18);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 163, 187, 0.3);
+}
+
+/* Glass surfaces — tuned blur for smoother scrolling */
+.glass {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.02)
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  will-change: transform;
+}
+.glass-strong {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.025)
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  will-change: transform;
+}
+
+/* Gradient text */
+.grad-text {
+  background: linear-gradient(
+    120deg,
+    #a99dff 0%,
+    #35d0ba 45%,
+    #ff7ab6 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Typing indicator dots */
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+.dot {
+  animation: blink 1.3s infinite;
+}
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Markdown prose tuning */
+.prose-chat {
+  color: var(--color-ink-100);
+  line-height: 1.65;
+}
+.prose-chat p { margin: 0.5rem 0; }
+.prose-chat code {
+  background: rgba(139, 124, 255, 0.12);
+  color: #dcd6ff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+.prose-chat pre {
+  background: rgba(7, 10, 19, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 14px;
+  border-radius: 12px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+.prose-chat pre code {
+  background: transparent;
+  padding: 0;
+  color: #e7ecf4;
+}
+.prose-chat a {
+  color: #a99dff;
+  text-decoration: underline;
+  text-decoration-color: rgba(169, 157, 255, 0.4);
+}
+.prose-chat ul,
+.prose-chat ol {
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+.prose-chat li { margin: 0.2rem 0; }
+.prose-chat strong { color: #fff; font-weight: 600; }
+.prose-chat h1,
+.prose-chat h2,
+.prose-chat h3 {
+  color: #fff;
+  font-weight: 600;
+  margin: 0.9rem 0 0.4rem;
+}

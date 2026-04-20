@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Backend runtime data
+backend/data/chroma/
+backend/data/graph.json
+
+# OS
+.DS_Store
+Thumbs.db
