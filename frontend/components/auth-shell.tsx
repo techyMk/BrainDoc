@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
   BrainCircuit,
   Sparkles,
   ShieldCheck,
@@ -27,7 +26,7 @@ export function AuthShell({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-white/5 bg-ink-950/40 backdrop-blur">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-[1400px] items-center px-6 py-4">
           <Link href="/" className="flex items-center gap-3">
             <div
               className="grid h-9 w-9 place-items-center rounded-xl"
@@ -42,13 +41,6 @@ export function AuthShell({
             <h1 className="text-[17px] font-semibold tracking-tight text-white">
               Brain<span className="grad-text">Doc</span>
             </h1>
-          </Link>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[12px] text-ink-300 hover:bg-white/[0.06] hover:text-ink-100"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to home
           </Link>
         </div>
       </header>
@@ -104,16 +96,6 @@ export function AuthShell({
                   />
                 </ol>
               </div>
-
-              <p className="mt-8 text-[12.5px] text-ink-400">
-                Already have an account?{" "}
-                <Link
-                  href="/sign-in"
-                  className="font-medium text-ink-100 hover:underline"
-                >
-                  Sign in →
-                </Link>
-              </p>
             </>
           ) : (
             <>
@@ -140,16 +122,6 @@ export function AuthShell({
                   body="Sign in to access the chat, ingest, and upload endpoints."
                 />
               </ul>
-
-              <p className="mt-8 text-[12.5px] text-ink-400">
-                New here?{" "}
-                <Link
-                  href="/sign-up"
-                  className="font-medium text-ink-100 hover:underline"
-                >
-                  Create a free account →
-                </Link>
-              </p>
             </>
           )}
         </motion.section>
