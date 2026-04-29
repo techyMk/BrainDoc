@@ -2,16 +2,27 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, BrainCircuit, Sparkles, ShieldCheck, Network } from "lucide-react";
+import {
+  ArrowLeft,
+  BrainCircuit,
+  Sparkles,
+  ShieldCheck,
+  Network,
+  CheckCircle2,
+  Upload,
+  MessageSquare,
+} from "lucide-react";
 
 export function AuthShell({
   title,
   subtitle,
   children,
+  variant = "signin",
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  variant?: "signin" | "signup";
 }) {
   return (
     <div className="flex min-h-screen flex-col">
@@ -54,29 +65,93 @@ export function AuthShell({
             <br />
             <span className="grad-text">{subtitle}</span>
           </h2>
-          <p className="mt-4 max-w-md text-[14.5px] leading-relaxed text-ink-300">
-            BrainDoc lets you chat with your documents using eight different
-            retrieval-augmented generation pipelines. Upload PDFs, ask
-            questions, and watch each strategy gather evidence differently.
-          </p>
 
-          <ul className="mt-8 flex flex-col gap-3">
-            <Feature
-              icon={<Sparkles className="h-4 w-4" />}
-              title="8 RAG strategies"
-              body="Naive, Hybrid, Rerank, Multi-Query, HyDE, Graph, Agentic, and Corrective."
-            />
-            <Feature
-              icon={<Network className="h-4 w-4" />}
-              title="Knowledge graph included"
-              body="Multi-hop questions traverse a graph built at ingest time."
-            />
-            <Feature
-              icon={<ShieldCheck className="h-4 w-4" />}
-              title="Private by account"
-              body="Sign in to access the chat, ingest, and upload endpoints."
-            />
-          </ul>
+          {variant === "signup" ? (
+            <>
+              <p className="mt-4 max-w-md text-[14.5px] leading-relaxed text-ink-300">
+                Create your account to chat with your documents using eight
+                different retrieval-augmented generation strategies — all in
+                one place.
+              </p>
+
+              <div className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1.5 text-[11.5px] font-medium text-emerald-200">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Free forever — no credit card required
+              </div>
+
+              <div className="mt-8">
+                <div className="mb-3 text-[11px] uppercase tracking-wider text-ink-400">
+                  Get started in 3 steps
+                </div>
+                <ol className="flex flex-col gap-3">
+                  <Step
+                    n={1}
+                    icon={<ShieldCheck className="h-4 w-4" />}
+                    title="Create your account"
+                    body="Email + password, or one-click with Google."
+                  />
+                  <Step
+                    n={2}
+                    icon={<Upload className="h-4 w-4" />}
+                    title="Upload your documents"
+                    body="Drag-and-drop PDFs, Markdown, or text — up to a few MB each."
+                  />
+                  <Step
+                    n={3}
+                    icon={<MessageSquare className="h-4 w-4" />}
+                    title="Ask anything"
+                    body="Switch between 8 RAG modes mid-conversation to compare results."
+                  />
+                </ol>
+              </div>
+
+              <p className="mt-8 text-[12.5px] text-ink-400">
+                Already have an account?{" "}
+                <Link
+                  href="/sign-in"
+                  className="font-medium text-ink-100 hover:underline"
+                >
+                  Sign in →
+                </Link>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-4 max-w-md text-[14.5px] leading-relaxed text-ink-300">
+                BrainDoc lets you chat with your documents using eight different
+                retrieval-augmented generation pipelines. Upload PDFs, ask
+                questions, and watch each strategy gather evidence differently.
+              </p>
+
+              <ul className="mt-8 flex flex-col gap-3">
+                <Feature
+                  icon={<Sparkles className="h-4 w-4" />}
+                  title="8 RAG strategies"
+                  body="Naive, Hybrid, Rerank, Multi-Query, HyDE, Graph, Agentic, and Corrective."
+                />
+                <Feature
+                  icon={<Network className="h-4 w-4" />}
+                  title="Knowledge graph included"
+                  body="Multi-hop questions traverse a graph built at ingest time."
+                />
+                <Feature
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                  title="Private by account"
+                  body="Sign in to access the chat, ingest, and upload endpoints."
+                />
+              </ul>
+
+              <p className="mt-8 text-[12.5px] text-ink-400">
+                New here?{" "}
+                <Link
+                  href="/sign-up"
+                  className="font-medium text-ink-100 hover:underline"
+                >
+                  Create a free account →
+                </Link>
+              </p>
+            </>
+          )}
         </motion.section>
 
         <motion.section
@@ -125,6 +200,38 @@ function Feature({
         }}
       >
         {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="text-[13px] font-semibold text-white">{title}</div>
+        <p className="text-[12.5px] leading-snug text-ink-300">{body}</p>
+      </div>
+    </li>
+  );
+}
+
+function Step({
+  n,
+  icon,
+  title,
+  body,
+}: {
+  n: number;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <li className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+      <div className="relative mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white"
+        style={{
+          background:
+            "linear-gradient(135deg,rgba(169,157,255,0.35),rgba(53,208,186,0.25))",
+        }}
+      >
+        {icon}
+        <span className="absolute -right-1.5 -top-1.5 grid h-4 w-4 place-items-center rounded-full bg-ink-900 font-mono text-[9.5px] font-semibold text-ink-100 ring-1 ring-white/10">
+          {n}
+        </span>
       </div>
       <div className="min-w-0">
         <div className="text-[13px] font-semibold text-white">{title}</div>
