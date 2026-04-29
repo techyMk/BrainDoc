@@ -4,11 +4,16 @@ from core import embeddings, vectorstore
 from .base import Result, answer_with_context, to_sources
 
 
-def run(question: str, history: list[dict], top_k: int) -> Result:
+def run(
+    question: str,
+    history: list[dict],
+    top_k: int,
+    docs: list[str] | None = None,
+) -> Result:
     trace: list[Trace] = []
     qemb = embeddings.embed_query(question)
     trace.append(Trace(step="embed", detail=f"embedded query ({len(qemb)} dims)"))
-    hits = vectorstore.query(qemb, top_k=top_k)
+    hits = vectorstore.query(qemb, top_k=top_k, allowed_docs=docs)
     trace.append(Trace(
         step="retrieve",
         detail=f"top-{len(hits)} dense hits",

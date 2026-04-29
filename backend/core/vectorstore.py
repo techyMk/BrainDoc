@@ -87,7 +87,11 @@ def add(chunks: list[Chunk], embeddings: list[list[float]]):
     _save()
 
 
-def query(embedding: list[float], top_k: int = 10) -> list[dict]:
+def query(
+    embedding: list[float],
+    top_k: int = 10,
+    allowed_docs: list[str] | None = None,
+) -> list[dict]:
     st = _get()
     n = len(st["ids"])
     if n == 0:
@@ -95,14 +99,25 @@ def query(embedding: list[float], top_k: int = 10) -> list[dict]:
     q = np.asarray(embedding, dtype=np.float32).reshape(1, -1)
     q = _normalize(q)
     sims = (st["vectors"] @ q.T).ravel()
+
+    if allowed_docs is not None:
+        allowed = set(allowed_docs)
+        # Keep only indices whose meta.doc is allowed
+        mask = np.array(
+            [(st["metas"][i].get("doc") in allowed) for i in range(n)],
+            dtype=bool,
+        )
+        if not mask.any():
+            return []
+        sims = np.where(mask, sims, -np.inf)
+
     k = min(top_k, n)
-    if k >= n:
-        idx = np.argsort(-sims)
-    else:
-        part = np.argpartition(-sims, k - 1)[:k]
-        idx = part[np.argsort(-sims[part])]
+    part = np.argpartition(-sims, min(k - 1, n - 1))[:k]
+    idx = part[np.argsort(-sims[part])]
     out = []
     for i in idx[:k]:
+        if not np.isfinite(sims[i]):
+            continue
         out.append({
             "id": st["ids"][i],
             "text": st["texts"][i],
@@ -112,13 +127,30 @@ def query(embedding: list[float], top_k: int = 10) -> list[dict]:
     return out
 
 
-def get_all() -> list[dict]:
+def get_all(allowed_docs: list[str] | None = None) -> list[dict]:
     st = _get()
-    return [
+    rows = [
         {"id": i, "text": t, "meta": m}
         for i, t, m in zip(st["ids"], st["texts"], st["metas"])
     ]
+    if allowed_docs is None:
+        return rows
+    allowed = set(allowed_docs)
+    return [r for r in rows if (r.get("meta") or {}).get("doc") in allowed]
 
 
 def count() -> int:
     return len(_get()["ids"])
+
+
+def list_docs() -> list[dict]:
+    """Return one entry per distinct doc with its title and chunk count."""
+    by_doc: dict[str, dict] = {}
+    for m in _get()["metas"]:
+        d = (m or {}).get("doc")
+        if not d:
+            continue
+        if d not in by_doc:
+            by_doc[d] = {"doc": d, "title": m.get("title", d), "chunks": 0}
+        by_doc[d]["chunks"] += 1
+    return sorted(by_doc.values(), key=lambda x: x["doc"])

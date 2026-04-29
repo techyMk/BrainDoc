@@ -5,13 +5,18 @@ from core.bm25 import BM25Index
 from .base import Result, answer_with_context, to_sources, rrf_merge
 
 
-def run(question: str, history: list[dict], top_k: int) -> Result:
+def run(
+    question: str,
+    history: list[dict],
+    top_k: int,
+    docs: list[str] | None = None,
+) -> Result:
     trace: list[Trace] = []
     qemb = embeddings.embed_query(question)
-    dense = vectorstore.query(qemb, top_k=top_k * 2)
+    dense = vectorstore.query(qemb, top_k=top_k * 2, allowed_docs=docs)
     trace.append(Trace(step="dense", detail=f"{len(dense)} hits"))
 
-    bm25 = BM25Index(vectorstore.get_all())
+    bm25 = BM25Index(vectorstore.get_all(allowed_docs=docs))
     sparse = bm25.search(question, top_k=top_k * 2)
     trace.append(Trace(step="bm25", detail=f"{len(sparse)} hits"))
 

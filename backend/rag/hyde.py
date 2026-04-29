@@ -24,7 +24,12 @@ def _hypothesize(question: str) -> str:
         return question
 
 
-def run(question: str, history: list[dict], top_k: int) -> Result:
+def run(
+    question: str,
+    history: list[dict],
+    top_k: int,
+    docs: list[str] | None = None,
+) -> Result:
     trace: list[Trace] = []
     hypothetical = _hypothesize(question)
     trace.append(Trace(
@@ -34,7 +39,7 @@ def run(question: str, history: list[dict], top_k: int) -> Result:
     ))
 
     hemb = embeddings.embed_query(hypothetical)
-    hits = vectorstore.query(hemb, top_k=top_k)
+    hits = vectorstore.query(hemb, top_k=top_k, allowed_docs=docs)
     trace.append(Trace(
         step="retrieve",
         detail=f"searched with hypothetical → {len(hits)} hits",

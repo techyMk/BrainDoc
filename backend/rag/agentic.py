@@ -97,12 +97,17 @@ AGENT_SYS = (
 )
 
 
-def _run_tool(name: str, args: dict, collected: dict[str, dict]):
+def _run_tool(
+    name: str,
+    args: dict,
+    collected: dict[str, dict],
+    allowed_docs: list[str] | None = None,
+):
     if name == "vector_search":
         q = args.get("query", "")
         k = int(args.get("k", 5))
         emb = embeddings.embed_query(q)
-        hits = vectorstore.query(emb, top_k=k)
+        hits = vectorstore.query(emb, top_k=k, allowed_docs=allowed_docs)
         for h in hits:
             collected[h["id"]] = h
         return [{"id": h["id"], "title": (h.get("meta") or {}).get("title"),
@@ -110,7 +115,7 @@ def _run_tool(name: str, args: dict, collected: dict[str, dict]):
     if name == "keyword_search":
         q = args.get("query", "")
         k = int(args.get("k", 5))
-        idx = BM25Index(vectorstore.get_all())
+        idx = BM25Index(vectorstore.get_all(allowed_docs=allowed_docs))
         hits = idx.search(q, top_k=k)
         for h in hits:
             collected[h["id"]] = h
@@ -124,7 +129,9 @@ def _run_tool(name: str, args: dict, collected: dict[str, dict]):
         matched = [canon[e.lower()] for e in ents if e.lower() in canon]
         rels = graph_store.describe_subgraph(matched, hops=hops)
         chunk_ids = graph_store.subgraph_chunks(matched, hops=hops)
-        all_chunks = {c["id"]: c for c in vectorstore.get_all()}
+        all_chunks = {
+            c["id"]: c for c in vectorstore.get_all(allowed_docs=allowed_docs)
+        }
         hit_chunks = [all_chunks[i] for i in chunk_ids if i in all_chunks][:8]
         for h in hit_chunks:
             collected[h["id"]] = h
@@ -146,7 +153,12 @@ def _parse_args(raw: str) -> dict:
         return {}
 
 
-def run(question: str, history: list[dict], top_k: int) -> Result:
+def run(
+    question: str,
+    history: list[dict],
+    top_k: int,
+    docs: list[str] | None = None,
+) -> Result:
     trace: list[Trace] = []
     collected: dict[str, dict] = {}
     cited_ids: list[str] = []
@@ -211,7 +223,7 @@ def run(question: str, history: list[dict], top_k: int) -> Result:
                 did_answer = True
                 result = {"status": "ok"}
             else:
-                result = _run_tool(name, args, collected)
+                result = _run_tool(name, args, collected, allowed_docs=docs)
             messages.append({
                 "role": "tool",
                 "tool_call_id": tc.id,

@@ -30,7 +30,12 @@ def _extract_entities(question: str, known: list[str]) -> list[str]:
     return []
 
 
-def run(question: str, history: list[dict], top_k: int) -> Result:
+def run(
+    question: str,
+    history: list[dict],
+    top_k: int,
+    docs: list[str] | None = None,
+) -> Result:
     trace: list[Trace] = []
     known = graph_store.node_names()
     entities = _extract_entities(question, known)
@@ -55,8 +60,8 @@ def run(question: str, history: list[dict], top_k: int) -> Result:
     ))
 
     chunk_ids = graph_store.subgraph_chunks(entities_matched, hops=2)
-    # Pull the actual chunks from the vector store
-    all_chunks = {c["id"]: c for c in vectorstore.get_all()}
+    # Pull the actual chunks from the vector store, scoped to allowed docs
+    all_chunks = {c["id"]: c for c in vectorstore.get_all(allowed_docs=docs)}
     graph_docs = [all_chunks[i] for i in chunk_ids if i in all_chunks]
     graph_docs = graph_docs[: top_k * 2]
     trace.append(Trace(
@@ -67,7 +72,7 @@ def run(question: str, history: list[dict], top_k: int) -> Result:
     # Fallback: if graph yielded nothing, backfill with dense
     if not graph_docs:
         qemb = embeddings.embed_query(question)
-        graph_docs = vectorstore.query(qemb, top_k=top_k)
+        graph_docs = vectorstore.query(qemb, top_k=top_k, allowed_docs=docs)
         trace.append(Trace(step="fallback", detail="no graph hits — using dense"))
 
     # Rerank by relevance to the question

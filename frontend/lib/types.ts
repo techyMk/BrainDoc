@@ -74,6 +74,12 @@ export type Suggestions = {
   based_on: string[];
 };
 
+export type DocInfo = {
+  doc: string;
+  title: string;
+  chunks: number;
+};
+
 export type ChatTurn = {
   role: "user" | "assistant";
   content: string;

@@ -19,6 +19,7 @@ class ChatRequest(BaseModel):
     mode: RagMode = "naive"
     history: list[dict] = Field(default_factory=list)
     top_k: int = 5
+    docs: list[str] | None = None  # None or empty = use all
 
 
 class Source(BaseModel):
@@ -79,3 +80,9 @@ class ModeInfo(BaseModel):
     tagline: str
     description: str
     icon: str
+
+
+class DocInfo(BaseModel):
+    doc: str
+    title: str
+    chunks: int

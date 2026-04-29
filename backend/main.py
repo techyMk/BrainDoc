@@ -7,8 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from models import (
-    ChatRequest, ChatResponse, IngestRequest, IngestResponse, ModeInfo,
-    SuggestionsResponse, UploadResponse, UploadedFile,
+    ChatRequest, ChatResponse, DocInfo, IngestRequest, IngestResponse,
+    ModeInfo, SuggestionsResponse, UploadResponse, UploadedFile,
 )
 from core import ingest, vectorstore, graph_store, suggest
 from core.ingest import SUPPORTED_EXTS
@@ -140,6 +140,12 @@ def suggestions(refresh: bool = False):
     return SuggestionsResponse(**data)
 
 
+@app.get("/api/docs", response_model=list[DocInfo],
+         dependencies=[Depends(require_api_key)])
+def docs():
+    return [DocInfo(**d) for d in vectorstore.list_docs()]
+
+
 @app.post("/api/ingest", response_model=IngestResponse,
          dependencies=[Depends(require_api_key)])
 def ingest_endpoint(req: IngestRequest):
@@ -243,6 +249,7 @@ def chat(req: ChatRequest):
             question=req.message,
             history=req.history,
             top_k=req.top_k,
+            docs=req.docs or None,
         )
     except Exception as e:
         raise HTTPException(500, f"pipeline failed: {e}") from e

@@ -10,10 +10,12 @@ import { MessageBubble } from "@/components/message";
 import { Composer } from "@/components/composer";
 import { EmptyState } from "@/components/empty-state";
 import { IngestPanel } from "@/components/ingest-panel";
+import { DocsPanel } from "@/components/docs-panel";
 import { AuthGate } from "@/components/auth-gate";
 import type {
   ChatResponse,
   ChatTurn,
+  DocInfo,
   Health,
   ModeInfo,
   RagMode,
@@ -30,6 +32,8 @@ export default function Page() {
   const [health, setHealth] = useState<Health | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
   const [refreshingSuggestions, setRefreshingSuggestions] = useState(false);
+  const [docs, setDocs] = useState<DocInfo[]>([]);
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadHealth = useCallback(async () => {
@@ -39,6 +43,29 @@ export default function Page() {
       else setHealth(null);
     } catch {
       setHealth(null);
+    }
+  }, []);
+
+  const loadDocs = useCallback(async () => {
+    try {
+      const r = await fetch("/api/docs", { cache: "no-store" });
+      if (!r.ok) return;
+      const list = (await r.json()) as DocInfo[];
+      setDocs(list);
+      // Default: keep current selection but auto-include any newly indexed docs
+      setSelectedDocs((prev) => {
+        if (prev.size === 0 && list.length > 0) {
+          return new Set(list.map((d) => d.doc));
+        }
+        const next = new Set(prev);
+        for (const d of list) next.add(d.doc);
+        // drop any selected docs that no longer exist
+        const valid = new Set(list.map((d) => d.doc));
+        for (const v of next) if (!valid.has(v)) next.delete(v);
+        return next;
+      });
+    } catch {
+      /* ignore */
     }
   }, []);
 
@@ -67,10 +94,11 @@ export default function Page() {
     })();
     loadHealth();
     loadSuggestions();
+    loadDocs();
     return () => {
       cancelled = true;
     };
-  }, [loadHealth, loadSuggestions]);
+  }, [loadHealth, loadSuggestions, loadDocs]);
 
   const lastTurn = turns[turns.length - 1];
   const scrollKey = `${turns.length}:${lastTurn?.pending ? "p" : "d"}:${
@@ -119,6 +147,10 @@ export default function Page() {
             mode,
             history,
             top_k: 5,
+            docs:
+              selectedDocs.size === 0 || selectedDocs.size === docs.length
+                ? null
+                : Array.from(selectedDocs),
           }),
         });
         if (!res.ok) {
@@ -153,7 +185,7 @@ export default function Page() {
         loadHealth();
       }
     },
-    [mode, submitting, turns, loadHealth],
+    [mode, submitting, turns, loadHealth, selectedDocs, docs.length],
   );
 
   const indexEmpty = (health?.chunks ?? 0) === 0;
@@ -180,7 +212,13 @@ export default function Page() {
             onDone={() => {
               loadHealth();
               loadSuggestions();
+              loadDocs();
             }}
+          />
+          <DocsPanel
+            docs={docs}
+            selected={selectedDocs}
+            onChange={setSelectedDocs}
           />
         </aside>
 

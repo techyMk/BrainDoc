@@ -26,7 +26,12 @@ def _rewrite(question: str) -> list[str]:
     return []
 
 
-def run(question: str, history: list[dict], top_k: int) -> Result:
+def run(
+    question: str,
+    history: list[dict],
+    top_k: int,
+    docs: list[str] | None = None,
+) -> Result:
     trace: list[Trace] = []
     queries = [question] + _rewrite(question)
     trace.append(Trace(
@@ -38,7 +43,7 @@ def run(question: str, history: list[dict], top_k: int) -> Result:
     rankings = []
     for q in queries:
         qemb = embeddings.embed_query(q)
-        hits = vectorstore.query(qemb, top_k=top_k * 2)
+        hits = vectorstore.query(qemb, top_k=top_k * 2, allowed_docs=docs)
         rankings.append(hits)
 
     fused = rrf_merge(rankings)[:top_k]

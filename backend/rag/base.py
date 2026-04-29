@@ -16,17 +16,29 @@ ANSWER_SYS = (
     "CONTEXT passages. Rules:\n"
     "1. Use only the context and conversation history to answer.\n"
     "2. Cite sources inline as [S1], [S2], ... matching the numbering of the "
-    "context blocks.\n"
-    "3. If the context does not contain the answer, say so plainly.\n"
-    "4. Be concise and direct. Do not invent facts."
+    "context blocks. Each block is tagged with its document name in the "
+    "header — use that name when referring to the source in prose.\n"
+    "3. **If different documents give different answers to the same question, "
+    "explicitly call out the conflict.** Don't average them or pick silently. "
+    "Format like: 'According to <doc A>, the answer is X [S1]. <doc B> says "
+    "Y [S2].' Then, if possible, suggest which document the user likely "
+    "wanted based on the question.\n"
+    "4. If the context does not contain the answer, say so plainly.\n"
+    "5. Be concise and direct. Do not invent facts."
 )
 
 
 def format_context(docs: list[dict]) -> str:
     blocks = []
     for i, d in enumerate(docs, start=1):
-        title = (d.get("meta") or {}).get("title") or d.get("meta", {}).get("doc", "doc")
-        blocks.append(f"[S{i}] ({title})\n{d['text']}")
+        meta = d.get("meta") or {}
+        title = meta.get("title") or meta.get("doc", "doc")
+        doc_name = meta.get("doc", "")
+        header = f"[S{i}] ({title}"
+        if doc_name and doc_name != title:
+            header += f" — {doc_name}"
+        header += ")"
+        blocks.append(f"{header}\n{d['text']}")
     return "\n\n".join(blocks)
 
 
