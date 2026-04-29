@@ -2,7 +2,7 @@ from __future__ import annotations
 import re
 import time
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
@@ -16,6 +16,18 @@ import rag as rag_pipelines
 
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def require_api_key(x_api_key: str | None = Header(default=None)):
+    """Reject requests that don't carry the shared frontend secret.
+
+    If APP_API_KEY isn't configured, we leave the API open (useful for local
+    dev). In Render, set the env var to lock the backend down."""
+    expected = settings.app_api_key
+    if not expected:
+        return
+    if not x_api_key or x_api_key != expected:
+        raise HTTPException(401, "invalid or missing X-API-Key")
 
 
 def _safe_filename(name: str) -> str:
@@ -115,18 +127,21 @@ def health():
     }
 
 
-@app.get("/api/modes", response_model=list[ModeInfo])
+@app.get("/api/modes", response_model=list[ModeInfo],
+         dependencies=[Depends(require_api_key)])
 def modes():
     return MODES
 
 
-@app.get("/api/suggestions", response_model=SuggestionsResponse)
+@app.get("/api/suggestions", response_model=SuggestionsResponse,
+        dependencies=[Depends(require_api_key)])
 def suggestions(refresh: bool = False):
     data = suggest.get(force=refresh)
     return SuggestionsResponse(**data)
 
 
-@app.post("/api/ingest", response_model=IngestResponse)
+@app.post("/api/ingest", response_model=IngestResponse,
+         dependencies=[Depends(require_api_key)])
 def ingest_endpoint(req: IngestRequest):
     if not settings.voyage_api_key:
         raise HTTPException(500, "VOYAGE_API_KEY is not configured")
@@ -137,7 +152,8 @@ def ingest_endpoint(req: IngestRequest):
     return IngestResponse(**res)
 
 
-@app.post("/api/upload", response_model=UploadResponse)
+@app.post("/api/upload", response_model=UploadResponse,
+         dependencies=[Depends(require_api_key)])
 async def upload(files: list[UploadFile] = File(...)):
     if not settings.voyage_api_key:
         raise HTTPException(500, "VOYAGE_API_KEY is not configured")
@@ -212,7 +228,8 @@ async def upload(files: list[UploadFile] = File(...)):
     )
 
 
-@app.post("/api/chat", response_model=ChatResponse)
+@app.post("/api/chat", response_model=ChatResponse,
+         dependencies=[Depends(require_api_key)])
 def chat(req: ChatRequest):
     if not settings.groq_api_key or not settings.voyage_api_key:
         raise HTTPException(500, "API keys are not configured on the server")

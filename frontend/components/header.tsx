@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Database, BrainCircuit } from "lucide-react";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import type { Health } from "@/lib/types";
 
 export function Header({ health }: { health: Health | null }) {
@@ -36,6 +37,25 @@ export function Header({ health }: { health: Health | null }) {
         </motion.div>
         <div className="flex items-center gap-3 text-[11.5px] text-ink-300">
           <StatusPill health={health} />
+          <SignedIn>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "h-8 w-8 ring-1 ring-white/10",
+                },
+              }}
+            />
+          </SignedIn>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-ink-100 hover:bg-white/[0.08]"
+              >
+                Sign in
+              </button>
+            </SignInButton>
+          </SignedOut>
         </div>
       </div>
     </header>

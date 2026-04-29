@@ -28,6 +28,7 @@ no credit card required.
 - **Node.js 20+**
 - A **Groq API key** (free, no card) — https://console.groq.com
 - A **Voyage AI API key** (free tier) — https://www.voyageai.com
+- A **Clerk app** (free up to 10K MAU) — https://dashboard.clerk.com
 
 ---
 
@@ -62,9 +63,35 @@ In a second terminal:
 
 ```bash
 cd frontend
+cp .env.example .env.local
+# edit .env.local — paste your Clerk keys, BACKEND_URL, and APP_API_KEY
+# (APP_API_KEY must match the value in backend/.env)
 npm install
 npm run dev
 ```
+
+### Setting up Clerk
+
+1. Go to https://dashboard.clerk.com → **Create application**.
+2. Pick whichever sign-in methods you want (email, Google, GitHub, etc.).
+3. From the **API Keys** page, copy:
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+4. Paste both into `frontend/.env.local`.
+
+### Locking down the backend
+
+The Next.js routes are gated by Clerk middleware, so signed-out users
+can't call `/api/*`. To stop someone from calling the FastAPI URL on
+Render directly, set a shared secret:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Paste the output as `APP_API_KEY` in **both** `backend/.env` and
+`frontend/.env.local`. The Next.js proxy will inject it as the
+`X-API-Key` header; FastAPI rejects requests without it.
 
 Open `http://localhost:3000`.
 

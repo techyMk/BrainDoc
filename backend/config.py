@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     groq_api_key: str = ""
     voyage_api_key: str = ""
+    app_api_key: str = ""
 
     groq_model: str = "llama-3.3-70b-versatile"
     voyage_embed_model: str = "voyage-3"
