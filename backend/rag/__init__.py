@@ -24,10 +24,17 @@ RUNNERS = {
 
 def run(
     mode: RagMode,
+    user_id: str,
     question: str,
     history: list[dict],
     top_k: int,
     docs: list[str] | None = None,
 ):
     fn = RUNNERS[mode]
-    return fn(question=question, history=history, top_k=top_k, docs=docs)
+    return fn(
+        user_id=user_id,
+        question=question,
+        history=history,
+        top_k=top_k,
+        docs=docs,
+    )

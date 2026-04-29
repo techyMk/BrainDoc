@@ -3,5 +3,4 @@ __pycache__/
 .venv/
 venv/
 .env
-data/chroma/
-data/graph.json
+data/users/

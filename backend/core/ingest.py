@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import shutil
 from pathlib import Path
 from config import settings
 from core import embeddings, vectorstore, graph_store
@@ -11,8 +12,6 @@ SUPPORTED_EXTS = {".md", ".txt", ".pdf"}
 
 
 def _chunk_markdown(text: str, max_chars: int = 900, overlap: int = 150) -> list[str]:
-    # Split on blank lines first to keep paragraphs/headings together, then
-    # greedily pack into windows of `max_chars` characters.
     parts = re.split(r"\n\s*\n", text.strip())
     chunks: list[str] = []
     buf = ""
@@ -28,13 +27,11 @@ def _chunk_markdown(text: str, max_chars: int = 900, overlap: int = 150) -> list
             if len(p) <= max_chars:
                 buf = p
             else:
-                # oversized paragraph: hard-wrap
                 for i in range(0, len(p), max_chars - overlap):
                     chunks.append(p[i : i + max_chars])
                 buf = ""
     if buf:
         chunks.append(buf)
-    # Add sliding overlap between adjacent chunks
     if overlap > 0 and len(chunks) > 1:
         with_overlap = [chunks[0]]
         for i in range(1, len(chunks)):
@@ -69,9 +66,9 @@ def _read_file(path: Path) -> str:
     raise ValueError(f"unsupported extension: {ext}")
 
 
-def _already_ingested_stems() -> set[str]:
+def _already_ingested_stems(user_id: str) -> set[str]:
     stems: set[str] = set()
-    for row in vectorstore.get_all():
+    for row in vectorstore.get_all(user_id):
         cid = row["id"]
         if "::" in cid:
             stems.add(cid.split("::", 1)[0])
@@ -110,8 +107,8 @@ def _list_files(docs_dir: Path) -> list[Path]:
     return sorted(files)
 
 
-def _ingest_files(files: list[Path]) -> int:
-    """Embed + index a list of files. Returns number of chunks added."""
+def _ingest_files(user_id: str, files: list[Path]) -> int:
+    """Embed + index a list of files into a specific user's stores."""
     all_chunks: list[Chunk] = []
     for f in files:
         try:
@@ -131,47 +128,68 @@ def _ingest_files(files: list[Path]) -> int:
     for i in range(0, len(all_chunks), BATCH):
         batch = all_chunks[i : i + BATCH]
         embs = embeddings.embed([c.text for c in batch], input_type="document")
-        vectorstore.add(batch, embs)
+        vectorstore.add(user_id, batch, embs)
 
     for c in all_chunks:
         triples = _extract_triples(c.text)
         if triples:
-            graph_store.add_triples(triples, source_doc=c.doc, source_chunk=c.id)
-    graph_store.save()
+            graph_store.add_triples(
+                user_id, triples, source_doc=c.doc, source_chunk=c.id,
+            )
+    graph_store.save(user_id)
     return len(all_chunks)
 
 
-def run(reset: bool = False, only: list[Path] | None = None) -> dict:
-    """Ingest documents.
+def _copy_seed_into_user(user_id: str) -> list[Path]:
+    """Copy seed docs into the user's docs dir, skipping ones already there.
+    Returns the list of *user-space* paths corresponding to the seed files."""
+    src_dir = settings.seed_docs_dir
+    dst_dir = settings.user_docs_dir(user_id)
+    out: list[Path] = []
+    for f in _list_files(src_dir):
+        target = dst_dir / f.name
+        if not target.exists():
+            shutil.copy2(f, target)
+        out.append(target)
+    return out
 
-    - reset=True wipes the index and graph first and ingests everything in
-      docs_dir.
-    - only=[...] ingests exactly those paths (used for the upload endpoint).
-    - otherwise: incremental — ingests files in docs_dir whose stem is not
-      already present in the index.
+
+def run(
+    user_id: str,
+    reset: bool = False,
+    only: list[Path] | None = None,
+    include_seed: bool = True,
+) -> dict:
+    """Ingest documents for a specific user.
+
+    - reset=True wipes that user's index and graph first.
+    - only=[...] ingests exactly those paths (used by upload).
+    - otherwise: incremental — picks up any file in the user's docs dir that
+      isn't already indexed. If `include_seed` is True (default), seed files
+      are copied into the user's docs dir first.
     """
     if reset:
-        vectorstore.reset()
-        graph_store.reset()
-
-    docs_dir = settings.docs_dir
+        vectorstore.reset(user_id)
+        graph_store.reset(user_id)
 
     if only is not None:
         files = [Path(p) for p in only]
     else:
-        all_files = _list_files(docs_dir)
+        if include_seed:
+            _copy_seed_into_user(user_id)
+        all_files = _list_files(settings.user_docs_dir(user_id))
         if reset:
             files = all_files
         else:
-            known = _already_ingested_stems()
+            known = _already_ingested_stems(user_id)
             files = [f for f in all_files if f.stem not in known]
 
-    chunks_added = _ingest_files(files) if files else 0
+    chunks_added = _ingest_files(user_id, files) if files else 0
 
-    gs = graph_store.stats()
+    gs = graph_store.stats(user_id)
     return {
         "ingested_docs": len(files),
-        "chunks": vectorstore.count(),
+        "chunks": vectorstore.count(user_id),
         "chunks_added": chunks_added,
         "graph_nodes": gs["nodes"],
         "graph_edges": gs["edges"],

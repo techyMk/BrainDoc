@@ -5,22 +5,21 @@ import networkx as nx
 from config import settings
 
 
-_graph: nx.MultiDiGraph | None = None
+_graphs: dict[str, nx.MultiDiGraph] = {}
 
 
-def _path() -> Path:
-    return settings.graph_file
+def _path(user_id: str) -> Path:
+    return settings.user_graph_path(user_id)
 
 
-def graph() -> nx.MultiDiGraph:
-    global _graph
-    if _graph is None:
-        _graph = _load()
-    return _graph
+def graph(user_id: str) -> nx.MultiDiGraph:
+    if user_id not in _graphs:
+        _graphs[user_id] = _load(user_id)
+    return _graphs[user_id]
 
 
-def _load() -> nx.MultiDiGraph:
-    p = _path()
+def _load(user_id: str) -> nx.MultiDiGraph:
+    p = _path(user_id)
     g = nx.MultiDiGraph()
     if not p.exists():
         return g
@@ -34,8 +33,8 @@ def _load() -> nx.MultiDiGraph:
     return g
 
 
-def save():
-    g = graph()
+def save(user_id: str):
+    g = graph(user_id)
     data = {
         "nodes": [{"id": n, **g.nodes[n]} for n in g.nodes],
         "edges": [
@@ -43,18 +42,18 @@ def save():
             for u, v, d in g.edges(data=True)
         ],
     }
-    _path().parent.mkdir(parents=True, exist_ok=True)
-    _path().write_text(json.dumps(data, indent=2), encoding="utf-8")
+    p = _path(user_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def reset():
-    global _graph
-    _graph = nx.MultiDiGraph()
-    save()
+def reset(user_id: str):
+    _graphs[user_id] = nx.MultiDiGraph()
+    save(user_id)
 
 
-def add_triples(triples: list[dict], source_doc: str, source_chunk: str):
-    g = graph()
+def add_triples(user_id: str, triples: list[dict], source_doc: str, source_chunk: str):
+    g = graph(user_id)
     for t in triples:
         s = str(t.get("subject", "")).strip()
         r = str(t.get("relation", "")).strip()
@@ -67,20 +66,15 @@ def add_triples(triples: list[dict], source_doc: str, source_chunk: str):
             m = g.nodes[n].setdefault("mentions", [])
             if source_chunk not in m:
                 m.append(source_chunk)
-        g.add_edge(
-            s, o,
-            relation=r,
-            doc=source_doc,
-            chunk=source_chunk,
-        )
+        g.add_edge(s, o, relation=r, doc=source_doc, chunk=source_chunk)
 
 
-def node_names() -> list[str]:
-    return list(graph().nodes)
+def node_names(user_id: str) -> list[str]:
+    return list(graph(user_id).nodes)
 
 
-def subgraph_chunks(entities: list[str], hops: int = 1) -> list[str]:
-    g = graph()
+def subgraph_chunks(user_id: str, entities: list[str], hops: int = 1) -> list[str]:
+    g = graph(user_id)
     seen_nodes: set[str] = set()
     frontier = [n for n in entities if n in g.nodes]
     seen_nodes.update(frontier)
@@ -104,8 +98,8 @@ def subgraph_chunks(entities: list[str], hops: int = 1) -> list[str]:
     return list(chunks)
 
 
-def describe_subgraph(entities: list[str], hops: int = 1) -> list[str]:
-    g = graph()
+def describe_subgraph(user_id: str, entities: list[str], hops: int = 1) -> list[str]:
+    g = graph(user_id)
     lines: list[str] = []
     visited_edges = set()
     frontier = [n for n in entities if n in g.nodes]
@@ -130,6 +124,6 @@ def describe_subgraph(entities: list[str], hops: int = 1) -> list[str]:
     return lines
 
 
-def stats() -> dict:
-    g = graph()
+def stats(user_id: str) -> dict:
+    g = graph(user_id)
     return {"nodes": g.number_of_nodes(), "edges": g.number_of_edges()}

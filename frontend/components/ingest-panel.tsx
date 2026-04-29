@@ -82,8 +82,8 @@ export function IngestPanel({
       </div>
       <p className="text-[12px] leading-snug text-ink-300">
         {empty
-          ? "The vector index is empty. Ingest the seed corpus or upload your own documents to get started."
-          : `Indexed: ${health?.chunks} chunks · ${health?.graph.nodes ?? 0} graph nodes · ${health?.graph.edges ?? 0} edges.`}
+          ? "Your private index is empty. Ingest the seed corpus or upload your own documents to get started."
+          : `Indexed (your account): ${health?.chunks} chunks · ${health?.graph.nodes ?? 0} graph nodes · ${health?.graph.edges ?? 0} edges.`}
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">

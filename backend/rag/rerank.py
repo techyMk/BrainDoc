@@ -5,6 +5,7 @@ from .base import Result, answer_with_context, to_sources
 
 
 def run(
+    user_id: str,
     question: str,
     history: list[dict],
     top_k: int,
@@ -14,7 +15,7 @@ def run(
     qemb = embeddings.embed_query(question)
 
     candidates = vectorstore.query(
-        qemb, top_k=max(top_k * 4, 20), allowed_docs=docs,
+        user_id, qemb, top_k=max(top_k * 4, 20), allowed_docs=docs,
     )
     trace.append(Trace(step="retrieve", detail=f"first stage: {len(candidates)} candidates"))
 

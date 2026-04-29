@@ -54,6 +54,7 @@ def _rewrite(question: str) -> str:
 
 
 def run(
+    user_id: str,
     question: str,
     history: list[dict],
     top_k: int,
@@ -62,7 +63,7 @@ def run(
     trace: list[Trace] = []
 
     qemb = embeddings.embed_query(question)
-    hits = vectorstore.query(qemb, top_k=top_k * 2, allowed_docs=docs)
+    hits = vectorstore.query(user_id, qemb, top_k=top_k * 2, allowed_docs=docs)
     trace.append(Trace(step="retrieve", detail=f"initial dense: {len(hits)} hits"))
 
     grades = _grade(question, hits)
@@ -84,7 +85,7 @@ def run(
             data={"rewritten": rewritten},
         ))
         qemb2 = embeddings.embed_query(rewritten)
-        extra = vectorstore.query(qemb2, top_k=top_k * 2, allowed_docs=docs)
+        extra = vectorstore.query(user_id, qemb2, top_k=top_k * 2, allowed_docs=docs)
         grades2 = _grade(question, extra)
         by_id2 = {g.get("id"): g for g in grades2 if isinstance(g, dict)}
         new_rel = [h for h in extra if by_id2.get(h["id"], {}).get("grade") == "relevant"]

@@ -27,6 +27,7 @@ def _rewrite(question: str) -> list[str]:
 
 
 def run(
+    user_id: str,
     question: str,
     history: list[dict],
     top_k: int,
@@ -43,7 +44,7 @@ def run(
     rankings = []
     for q in queries:
         qemb = embeddings.embed_query(q)
-        hits = vectorstore.query(qemb, top_k=top_k * 2, allowed_docs=docs)
+        hits = vectorstore.query(user_id, qemb, top_k=top_k * 2, allowed_docs=docs)
         rankings.append(hits)
 
     fused = rrf_merge(rankings)[:top_k]

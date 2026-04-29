@@ -31,13 +31,14 @@ def _extract_entities(question: str, known: list[str]) -> list[str]:
 
 
 def run(
+    user_id: str,
     question: str,
     history: list[dict],
     top_k: int,
     docs: list[str] | None = None,
 ) -> Result:
     trace: list[Trace] = []
-    known = graph_store.node_names()
+    known = graph_store.node_names(user_id)
     entities = _extract_entities(question, known)
     # Case-insensitive normalization against known nodes
     canon = {n.lower(): n for n in known}
@@ -52,16 +53,18 @@ def run(
         data={"extracted": entities, "matched": entities_matched},
     ))
 
-    rel_lines = graph_store.describe_subgraph(entities_matched, hops=2)
+    rel_lines = graph_store.describe_subgraph(user_id, entities_matched, hops=2)
     trace.append(Trace(
         step="graph-traverse",
         detail=f"collected {len(rel_lines)} relationships",
         data={"edges": rel_lines[:20]},
     ))
 
-    chunk_ids = graph_store.subgraph_chunks(entities_matched, hops=2)
+    chunk_ids = graph_store.subgraph_chunks(user_id, entities_matched, hops=2)
     # Pull the actual chunks from the vector store, scoped to allowed docs
-    all_chunks = {c["id"]: c for c in vectorstore.get_all(allowed_docs=docs)}
+    all_chunks = {
+        c["id"]: c for c in vectorstore.get_all(user_id, allowed_docs=docs)
+    }
     graph_docs = [all_chunks[i] for i in chunk_ids if i in all_chunks]
     graph_docs = graph_docs[: top_k * 2]
     trace.append(Trace(
@@ -72,7 +75,7 @@ def run(
     # Fallback: if graph yielded nothing, backfill with dense
     if not graph_docs:
         qemb = embeddings.embed_query(question)
-        graph_docs = vectorstore.query(qemb, top_k=top_k, allowed_docs=docs)
+        graph_docs = vectorstore.query(user_id, qemb, top_k=top_k, allowed_docs=docs)
         trace.append(Trace(step="fallback", detail="no graph hits — using dense"))
 
     # Rerank by relevance to the question

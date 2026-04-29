@@ -6,6 +6,7 @@ from .base import Result, answer_with_context, to_sources, rrf_merge
 
 
 def run(
+    user_id: str,
     question: str,
     history: list[dict],
     top_k: int,
@@ -13,10 +14,10 @@ def run(
 ) -> Result:
     trace: list[Trace] = []
     qemb = embeddings.embed_query(question)
-    dense = vectorstore.query(qemb, top_k=top_k * 2, allowed_docs=docs)
+    dense = vectorstore.query(user_id, qemb, top_k=top_k * 2, allowed_docs=docs)
     trace.append(Trace(step="dense", detail=f"{len(dense)} hits"))
 
-    bm25 = BM25Index(vectorstore.get_all(allowed_docs=docs))
+    bm25 = BM25Index(vectorstore.get_all(user_id, allowed_docs=docs))
     sparse = bm25.search(question, top_k=top_k * 2)
     trace.append(Trace(step="bm25", detail=f"{len(sparse)} hits"))
 

@@ -15,9 +15,8 @@ out/
 .env.local
 .env.*.local
 
-# Backend runtime data
-backend/data/chroma/
-backend/data/graph.json
+# Backend runtime data (per-user partitions)
+backend/data/users/
 
 # OS
 .DS_Store

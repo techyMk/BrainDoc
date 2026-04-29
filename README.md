@@ -20,6 +20,12 @@ Groq Llama 3.3 70B** for the backend, with a NetworkX knowledge graph
 built at ingestion time. Both Groq and Voyage have generous free tiers —
 no credit card required.
 
+**Private by user.** Every account gets its own isolated vector index,
+knowledge graph, and uploaded-docs folder. Authentication is handled by
+Clerk; the FastAPI backend trusts the Next.js proxy to forward the
+authenticated `user_id`, gated by a shared `APP_API_KEY` so external
+callers can't spoof a user.
+
 ---
 
 ## Prerequisites
@@ -141,9 +147,12 @@ rag-test/
 │   │   ├── agentic.py       # Tool-use loop with Claude
 │   │   └── corrective.py    # Grade-and-retry self-RAG
 │   └── data/
-│       ├── docs/            # Seed markdown corpus
-│       ├── chroma/          # Auto-created vector DB
-│       └── graph.json       # Auto-created KG
+│       ├── seed_docs/       # Read-only seed markdown corpus
+│       └── users/           # Auto-created, one folder per Clerk user
+│           └── <user_id>/
+│               ├── docs/        # That user's uploaded files
+│               ├── index.pkl    # That user's vector index
+│               └── graph.json   # That user's knowledge graph
 └── frontend/
     ├── app/
     │   ├── page.tsx         # Main chat page

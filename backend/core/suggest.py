@@ -29,26 +29,27 @@ _SYS = (
 )
 
 
-_cache: dict = {"key": None, "value": DEFAULTS, "docs": []}
+_caches: dict[str, dict] = {}
 
 
-def _signature() -> tuple[int, tuple[str, ...]]:
+def _signature(user_id: str) -> tuple[int, tuple[str, ...]]:
     docs: list[str] = []
     seen: set[str] = set()
-    for row in vectorstore.get_all():
+    for row in vectorstore.get_all(user_id):
         meta = row.get("meta") or {}
         d = meta.get("doc") or meta.get("title") or ""
         if d and d not in seen:
             seen.add(d)
             docs.append(d)
-    return (vectorstore.count(), tuple(sorted(docs)))
+    return (vectorstore.count(user_id), tuple(sorted(docs)))
 
 
-def _sample_chunks(max_chunks: int = 8, per_chunk_chars: int = 400) -> tuple[list[str], list[str]]:
-    rows = vectorstore.get_all()
+def _sample_chunks(
+    user_id: str, max_chunks: int = 8, per_chunk_chars: int = 400,
+) -> tuple[list[str], list[str]]:
+    rows = vectorstore.get_all(user_id)
     if not rows:
         return [], []
-    # One chunk per distinct doc first (for coverage), then fill randomly
     by_doc: dict[str, list[dict]] = {}
     for r in rows:
         d = (r.get("meta") or {}).get("doc", "")
@@ -72,22 +73,21 @@ def _sample_chunks(max_chunks: int = 8, per_chunk_chars: int = 400) -> tuple[lis
     return excerpts, [d for d in docs if d]
 
 
-def get(force: bool = False) -> dict:
-    key = _signature()
-    if not force and _cache["key"] == key:
-        return {"suggestions": _cache["value"], "based_on": _cache["docs"]}
+def get(user_id: str, force: bool = False) -> dict:
+    cache = _caches.setdefault(user_id, {"key": None, "value": DEFAULTS, "docs": []})
+    key = _signature(user_id)
+    if not force and cache["key"] == key:
+        return {"suggestions": cache["value"], "based_on": cache["docs"]}
 
     count, _docs = key
     if count == 0:
-        result = {"suggestions": DEFAULTS, "based_on": []}
-        _cache.update(key=key, value=DEFAULTS, docs=[])
-        return result
+        cache.update(key=key, value=DEFAULTS, docs=[])
+        return {"suggestions": DEFAULTS, "based_on": []}
 
-    excerpts, docs = _sample_chunks()
+    excerpts, docs = _sample_chunks(user_id)
     if not excerpts:
-        result = {"suggestions": DEFAULTS, "based_on": []}
-        _cache.update(key=key, value=DEFAULTS, docs=[])
-        return result
+        cache.update(key=key, value=DEFAULTS, docs=[])
+        return {"suggestions": DEFAULTS, "based_on": []}
 
     payload = "\n\n---\n\n".join(excerpts)
     try:
@@ -104,5 +104,5 @@ def get(force: bool = False) -> dict:
     except Exception:
         items = DEFAULTS
 
-    _cache.update(key=key, value=items, docs=docs)
+    cache.update(key=key, value=items, docs=docs)
     return {"suggestions": items, "based_on": docs}

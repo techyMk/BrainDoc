@@ -19,15 +19,21 @@ _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def require_api_key(x_api_key: str | None = Header(default=None)):
-    """Reject requests that don't carry the shared frontend secret.
-
-    If APP_API_KEY isn't configured, we leave the API open (useful for local
-    dev). In Render, set the env var to lock the backend down."""
+    """Reject requests that don't carry the shared frontend secret."""
     expected = settings.app_api_key
     if not expected:
         return
     if not x_api_key or x_api_key != expected:
         raise HTTPException(401, "invalid or missing X-API-Key")
+
+
+def current_user(x_user_id: str | None = Header(default=None)) -> str:
+    """Identify the caller. The Next.js proxy injects this header from
+    Clerk's `auth()` after Clerk middleware has authenticated the user.
+    Combined with `require_api_key`, only the proxy can supply it."""
+    if not x_user_id or not x_user_id.strip():
+        raise HTTPException(401, "missing X-User-Id header")
+    return x_user_id.strip()
 
 
 def _safe_filename(name: str) -> str:
@@ -37,7 +43,7 @@ def _safe_filename(name: str) -> str:
     return f"{stem}{ext}"
 
 
-app = FastAPI(title="BrainDoc", version="0.1.0")
+app = FastAPI(title="BrainDoc", version="0.2.0")
 
 _allowed_origins = list({
     settings.allowed_origin,
@@ -100,8 +106,8 @@ MODES: list[ModeInfo] = [
     ModeInfo(
         id="agentic",
         name="Agentic",
-        tagline="Claude picks the tools.",
-        description="Claude acts as a planner that calls vector, keyword, and graph tools adaptively and decides when it has enough evidence.",
+        tagline="LLM picks the tools.",
+        description="The LLM acts as a planner that calls vector, keyword, and graph tools adaptively and decides when it has enough evidence.",
         icon="bot",
     ),
     ModeInfo(
@@ -115,16 +121,23 @@ MODES: list[ModeInfo] = [
 
 
 @app.get("/api/health")
-def health():
-    return {
+def health(x_user_id: str | None = Header(default=None)):
+    """Public — does not reveal anything user-specific unless the caller
+    already supplies their X-User-Id (in which case we report their stats)."""
+    payload = {
         "ok": True,
         "has_llm_key": bool(settings.groq_api_key),
         "has_voyage_key": bool(settings.voyage_api_key),
         "llm_provider": "groq",
         "llm_model": settings.groq_model,
-        "chunks": vectorstore.count(),
-        "graph": graph_store.stats(),
+        "chunks": 0,
+        "graph": {"nodes": 0, "edges": 0},
     }
+    if x_user_id:
+        uid = x_user_id.strip()
+        payload["chunks"] = vectorstore.count(uid)
+        payload["graph"] = graph_store.stats(uid)
+    return payload
 
 
 @app.get("/api/modes", response_model=list[ModeInfo],
@@ -135,24 +148,24 @@ def modes():
 
 @app.get("/api/suggestions", response_model=SuggestionsResponse,
         dependencies=[Depends(require_api_key)])
-def suggestions(refresh: bool = False):
-    data = suggest.get(force=refresh)
+def suggestions(refresh: bool = False, user: str = Depends(current_user)):
+    data = suggest.get(user, force=refresh)
     return SuggestionsResponse(**data)
 
 
 @app.get("/api/docs", response_model=list[DocInfo],
          dependencies=[Depends(require_api_key)])
-def docs():
-    return [DocInfo(**d) for d in vectorstore.list_docs()]
+def docs(user: str = Depends(current_user)):
+    return [DocInfo(**d) for d in vectorstore.list_docs(user)]
 
 
 @app.post("/api/ingest", response_model=IngestResponse,
          dependencies=[Depends(require_api_key)])
-def ingest_endpoint(req: IngestRequest):
+def ingest_endpoint(req: IngestRequest, user: str = Depends(current_user)):
     if not settings.voyage_api_key:
         raise HTTPException(500, "VOYAGE_API_KEY is not configured")
     try:
-        res = ingest.run(reset=req.reset)
+        res = ingest.run(user, reset=req.reset, include_seed=True)
     except Exception as e:
         raise HTTPException(500, f"ingest failed: {e}") from e
     return IngestResponse(**res)
@@ -160,11 +173,14 @@ def ingest_endpoint(req: IngestRequest):
 
 @app.post("/api/upload", response_model=UploadResponse,
          dependencies=[Depends(require_api_key)])
-async def upload(files: list[UploadFile] = File(...)):
+async def upload(
+    files: list[UploadFile] = File(...),
+    user: str = Depends(current_user),
+):
     if not settings.voyage_api_key:
         raise HTTPException(500, "VOYAGE_API_KEY is not configured")
 
-    docs_dir = settings.docs_dir
+    docs_dir = settings.user_docs_dir(user)
     saved_paths: list[Path] = []
     uploaded: list[UploadedFile] = []
     skipped: list[str] = []
@@ -178,7 +194,6 @@ async def upload(files: list[UploadFile] = File(...)):
 
         safe = _safe_filename(name)
         dest = docs_dir / safe
-        # If a file with that name exists, append a numeric suffix
         if dest.exists():
             i = 2
             stem, ext2 = dest.stem, dest.suffix
@@ -202,14 +217,13 @@ async def upload(files: list[UploadFile] = File(...)):
         ))
 
     if not saved_paths:
-        # Still return a response so the frontend can show which were skipped
-        gs = graph_store.stats()
+        gs = graph_store.stats(user)
         return UploadResponse(
             uploaded=[],
             skipped=skipped,
             ingest=IngestResponse(
                 ingested_docs=0,
-                chunks=vectorstore.count(),
+                chunks=vectorstore.count(user),
                 chunks_added=0,
                 graph_nodes=gs["nodes"],
                 graph_edges=gs["edges"],
@@ -217,9 +231,8 @@ async def upload(files: list[UploadFile] = File(...)):
         )
 
     try:
-        res = ingest.run(reset=False, only=saved_paths)
+        res = ingest.run(user, reset=False, only=saved_paths, include_seed=False)
     except Exception as e:
-        # Roll back the written files so the user can retry
         for p in saved_paths:
             try:
                 p.unlink()
@@ -236,16 +249,17 @@ async def upload(files: list[UploadFile] = File(...)):
 
 @app.post("/api/chat", response_model=ChatResponse,
          dependencies=[Depends(require_api_key)])
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, user: str = Depends(current_user)):
     if not settings.groq_api_key or not settings.voyage_api_key:
         raise HTTPException(500, "API keys are not configured on the server")
-    if vectorstore.count() == 0:
-        raise HTTPException(409, "The index is empty — run POST /api/ingest first")
+    if vectorstore.count(user) == 0:
+        raise HTTPException(409, "Your index is empty — ingest some documents first")
 
     start = time.perf_counter()
     try:
         result = rag_pipelines.run(
             mode=req.mode,
+            user_id=user,
             question=req.message,
             history=req.history,
             top_k=req.top_k,

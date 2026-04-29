@@ -1,20 +1,8 @@
-import { BACKEND_URL } from "@/lib/utils";
+import { proxy } from "@/lib/proxy";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET() {
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/health`, { cache: "no-store" });
-    const text = await res.text();
-    return new Response(text, {
-      status: res.status,
-      headers: { "content-type": "application/json" },
-    });
-  } catch (e) {
-    return new Response(
-      JSON.stringify({ ok: false, error: String(e) }),
-      { status: 503, headers: { "content-type": "application/json" } },
-    );
-  }
+  return proxy("/api/health", { method: "GET", cache: "no-store" });
 }

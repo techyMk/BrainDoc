@@ -1,5 +1,4 @@
 from __future__ import annotations
-import json
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,21 +15,24 @@ class Chunk:
     chunk_index: int
 
 
-def _store_path() -> Path:
-    p = Path(settings.chroma_path).resolve()
-    p.mkdir(parents=True, exist_ok=True)
-    return p / "index.pkl"
-
-
-_state: dict | None = None
+_states: dict[str, dict] = {}
 
 
 def _empty() -> dict:
-    return {"ids": [], "texts": [], "metas": [], "vectors": np.zeros((0, 0), dtype=np.float32)}
+    return {
+        "ids": [],
+        "texts": [],
+        "metas": [],
+        "vectors": np.zeros((0, 0), dtype=np.float32),
+    }
 
 
-def _load() -> dict:
-    p = _store_path()
+def _path(user_id: str) -> Path:
+    return settings.user_index_path(user_id)
+
+
+def _load(user_id: str) -> dict:
+    p = _path(user_id)
     if not p.exists():
         return _empty()
     try:
@@ -43,23 +45,22 @@ def _load() -> dict:
         return _empty()
 
 
-def _get() -> dict:
-    global _state
-    if _state is None:
-        _state = _load()
-    return _state
+def _get(user_id: str) -> dict:
+    if user_id not in _states:
+        _states[user_id] = _load(user_id)
+    return _states[user_id]
 
 
-def _save():
-    p = _store_path()
+def _save(user_id: str):
+    p = _path(user_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("wb") as f:
-        pickle.dump(_get(), f)
+        pickle.dump(_get(user_id), f)
 
 
-def reset():
-    global _state
-    _state = _empty()
-    _save()
+def reset(user_id: str):
+    _states[user_id] = _empty()
+    _save(user_id)
 
 
 def _normalize(v: np.ndarray) -> np.ndarray:
@@ -68,12 +69,11 @@ def _normalize(v: np.ndarray) -> np.ndarray:
     return v / norms
 
 
-def add(chunks: list[Chunk], embeddings: list[list[float]]):
+def add(user_id: str, chunks: list[Chunk], embeddings: list[list[float]]):
     if not chunks:
         return
-    st = _get()
-    new_vecs = np.asarray(embeddings, dtype=np.float32)
-    new_vecs = _normalize(new_vecs)
+    st = _get(user_id)
+    new_vecs = _normalize(np.asarray(embeddings, dtype=np.float32))
     if st["vectors"].size == 0:
         st["vectors"] = new_vecs
     else:
@@ -84,25 +84,24 @@ def add(chunks: list[Chunk], embeddings: list[list[float]]):
         {"doc": c.doc, "title": c.title, "chunk_index": c.chunk_index}
         for c in chunks
     )
-    _save()
+    _save(user_id)
 
 
 def query(
+    user_id: str,
     embedding: list[float],
     top_k: int = 10,
     allowed_docs: list[str] | None = None,
 ) -> list[dict]:
-    st = _get()
+    st = _get(user_id)
     n = len(st["ids"])
     if n == 0:
         return []
-    q = np.asarray(embedding, dtype=np.float32).reshape(1, -1)
-    q = _normalize(q)
+    q = _normalize(np.asarray(embedding, dtype=np.float32).reshape(1, -1))
     sims = (st["vectors"] @ q.T).ravel()
 
     if allowed_docs is not None:
         allowed = set(allowed_docs)
-        # Keep only indices whose meta.doc is allowed
         mask = np.array(
             [(st["metas"][i].get("doc") in allowed) for i in range(n)],
             dtype=bool,
@@ -127,8 +126,8 @@ def query(
     return out
 
 
-def get_all(allowed_docs: list[str] | None = None) -> list[dict]:
-    st = _get()
+def get_all(user_id: str, allowed_docs: list[str] | None = None) -> list[dict]:
+    st = _get(user_id)
     rows = [
         {"id": i, "text": t, "meta": m}
         for i, t, m in zip(st["ids"], st["texts"], st["metas"])
@@ -139,14 +138,13 @@ def get_all(allowed_docs: list[str] | None = None) -> list[dict]:
     return [r for r in rows if (r.get("meta") or {}).get("doc") in allowed]
 
 
-def count() -> int:
-    return len(_get()["ids"])
+def count(user_id: str) -> int:
+    return len(_get(user_id)["ids"])
 
 
-def list_docs() -> list[dict]:
-    """Return one entry per distinct doc with its title and chunk count."""
+def list_docs(user_id: str) -> list[dict]:
     by_doc: dict[str, dict] = {}
-    for m in _get()["metas"]:
+    for m in _get(user_id)["metas"]:
         d = (m or {}).get("doc")
         if not d:
             continue
