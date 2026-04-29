@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { ModeSelector } from "@/components/mode-selector";
@@ -11,7 +10,6 @@ import { Composer } from "@/components/composer";
 import { EmptyState } from "@/components/empty-state";
 import { IngestPanel } from "@/components/ingest-panel";
 import { DocsPanel } from "@/components/docs-panel";
-import { AuthGate } from "@/components/auth-gate";
 import type {
   ChatResponse,
   ChatTurn,
@@ -193,12 +191,6 @@ export default function Page() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header health={health} />
-      <SignedOut>
-        <main className="mx-auto flex w-full max-w-[1400px] flex-1 px-4 pb-6 pt-4 sm:px-6">
-          <AuthGate />
-        </main>
-      </SignedOut>
-      <SignedIn>
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 gap-6 px-4 pb-6 pt-4 sm:px-6">
         <aside className="hidden w-[300px] shrink-0 flex-col gap-4 lg:flex">
           <div className="glass rounded-2xl p-3">
@@ -285,7 +277,6 @@ export default function Page() {
           />
         </section>
       </main>
-      </SignedIn>
       <Footer />
     </div>
   );

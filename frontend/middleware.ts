@@ -18,9 +18,9 @@ export default clerkMiddleware(async (auth, req) => {
         { status: 401, headers: { "content-type": "application/json" } },
       );
     }
-    const signIn = new URL("/sign-in", req.url);
-    signIn.searchParams.set("redirect_url", req.url);
-    return NextResponse.redirect(signIn);
+    const signUp = new URL("/sign-up", req.url);
+    signUp.searchParams.set("redirect_url", req.url);
+    return NextResponse.redirect(signUp);
   }
 });
 
