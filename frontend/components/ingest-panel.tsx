@@ -98,7 +98,11 @@ export function IngestPanel({
           ) : (
             <Database className="h-3.5 w-3.5" />
           )}
-          {empty ? "Ingest seed docs" : "Sync new docs"}
+          {busy === "ingest"
+            ? "Working… (first run can take ~60s)"
+            : empty
+              ? "Ingest seed docs"
+              : "Sync new docs"}
         </button>
         {!empty && (
           <button

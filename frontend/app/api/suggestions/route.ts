@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { proxy } from "@/lib/proxy";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const refresh = req.nextUrl.searchParams.get("refresh") === "1";
